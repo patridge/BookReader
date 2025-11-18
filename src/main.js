@@ -25,6 +25,7 @@ class BookReader {
     };
     
     this.setupEventListeners();
+    this.loadFromLocalStorage();
   }
   
   setupEventListeners() {
@@ -111,6 +112,50 @@ class BookReader {
     this.updateDisplay();
     this.elements.playPauseBtn.disabled = false;
     this.updateProgress();
+    this.saveToLocalStorage();
+  }
+  
+  saveToLocalStorage() {
+    try {
+      const bookData = {
+        text: this.words.join(' '),
+        currentIndex: this.currentIndex,
+        wpm: this.wpm
+      };
+      localStorage.setItem('bookReaderData', JSON.stringify(bookData));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  }
+  
+  loadFromLocalStorage() {
+    try {
+      const savedData = localStorage.getItem('bookReaderData');
+      if (!savedData) return;
+      
+      const bookData = JSON.parse(savedData);
+      
+      // Restore the book
+      this.words = bookData.text.split(/\s+/).filter(word => word.length > 0);
+      
+      // Restore position
+      this.currentIndex = Math.min(bookData.currentIndex || 0, this.words.length - 1);
+      
+      // Restore speed
+      if (bookData.wpm) {
+        this.wpm = bookData.wpm;
+        this.updateSpeed(this.wpm);
+      }
+      
+      // Update UI
+      if (this.words.length > 0) {
+        this.updateDisplay();
+        this.elements.playPauseBtn.disabled = false;
+        this.updateProgress();
+      }
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
+    }
   }
   
   updateSpeed(wpm) {
@@ -122,6 +167,11 @@ class BookReader {
     if (this.isPlaying) {
       this.stop();
       this.play();
+    }
+    
+    // Save speed change
+    if (this.words.length > 0) {
+      this.saveToLocalStorage();
     }
   }
   
@@ -135,6 +185,7 @@ class BookReader {
     this.currentIndex = newIndex;
     this.updateDisplay();
     this.updateProgress();
+    this.saveToLocalStorage();
   }
   
   togglePlayPause() {
@@ -182,6 +233,11 @@ class BookReader {
     this.updateDisplay();
     this.currentIndex++;
     this.updateProgress();
+    
+    // Save progress periodically (every 10 words to reduce storage writes)
+    if (this.currentIndex % 10 === 0) {
+      this.saveToLocalStorage();
+    }
   }
   
   updateDisplay() {
