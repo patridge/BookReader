@@ -11,6 +11,7 @@ class BookReader {
     this.elements = {
       wordDisplay: document.getElementById('word-display'),
       fileInput: document.getElementById('file-input'),
+      loadSampleBtn: document.getElementById('load-sample'),
       playPauseBtn: document.getElementById('play-pause'),
       speedSlider: document.getElementById('speed'),
       speedValue: document.getElementById('speed-value'),
@@ -22,6 +23,7 @@ class BookReader {
   
   setupEventListeners() {
     this.elements.fileInput.addEventListener('change', (e) => this.loadBook(e));
+    this.elements.loadSampleBtn.addEventListener('click', () => this.loadSampleBook());
     this.elements.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
     this.elements.speedSlider.addEventListener('input', (e) => this.updateSpeed(e.target.value));
     
@@ -41,14 +43,30 @@ class BookReader {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target.result;
-      // Split by whitespace and filter out empty strings
-      this.words = text.split(/\s+/).filter(word => word.length > 0);
-      this.currentIndex = 0;
-      this.updateDisplay();
-      this.elements.playPauseBtn.disabled = false;
-      this.updateProgress();
+      this.processBookText(text);
     };
     reader.readAsText(file);
+  }
+  
+  async loadSampleBook() {
+    try {
+      const response = await fetch('/books/pg-alice.txt');
+      if (!response.ok) throw new Error('Failed to load sample book');
+      const text = await response.text();
+      this.processBookText(text);
+    } catch (error) {
+      console.error('Error loading sample book:', error);
+      alert('Failed to load sample book. Please check that the file exists.');
+    }
+  }
+  
+  processBookText(text) {
+    // Split by whitespace and filter out empty strings
+    this.words = text.split(/\s+/).filter(word => word.length > 0);
+    this.currentIndex = 0;
+    this.updateDisplay();
+    this.elements.playPauseBtn.disabled = false;
+    this.updateProgress();
   }
   
   updateSpeed(wpm) {
