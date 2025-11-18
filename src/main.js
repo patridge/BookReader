@@ -17,7 +17,10 @@ class BookReader {
       playPauseBtn: document.getElementById('play-pause'),
       speedSlider: document.getElementById('speed'),
       speedValue: document.getElementById('speed-value'),
-      progressText: document.getElementById('progress-text')
+      progressText: document.getElementById('progress-text'),
+      helpButton: document.getElementById('help-button'),
+      helpOverlay: document.getElementById('help-overlay'),
+      closeHelpBtn: document.getElementById('close-help')
     };
     
     this.setupEventListeners();
@@ -28,6 +31,13 @@ class BookReader {
     this.elements.loadSampleBtn.addEventListener('click', () => this.loadSampleBook());
     this.elements.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
     this.elements.speedSlider.addEventListener('input', (e) => this.updateSpeed(e.target.value));
+    this.elements.helpButton.addEventListener('click', () => this.toggleHelp());
+    this.elements.closeHelpBtn.addEventListener('click', () => this.toggleHelp());
+    this.elements.helpOverlay.addEventListener('click', (e) => {
+      if (e.target === this.elements.helpOverlay) {
+        this.toggleHelp();
+      }
+    });
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -44,6 +54,17 @@ class BookReader {
       if (e.code === 'ArrowDown') {
         e.preventDefault();
         this.adjustSpeed(-SPEED_ADJUSTMENT_STEP);
+      }
+      
+      if (e.key === '?' || e.key === '/') {
+        e.preventDefault();
+        this.toggleHelp();
+      }
+      
+      if (e.code === 'Escape') {
+        if (!this.elements.helpOverlay.classList.contains('hidden')) {
+          this.toggleHelp();
+        }
       }
     });
   }
@@ -154,6 +175,17 @@ class BookReader {
   updateProgress() {
     this.elements.progressText.textContent = 
       `${this.currentIndex + 1} / ${this.words.length}`;
+  }
+  
+  toggleHelp() {
+    const isCurrentlyHidden = this.elements.helpOverlay.classList.contains('hidden');
+    
+    // If we're about to show the help overlay and currently playing, pause
+    if (isCurrentlyHidden && this.isPlaying) {
+      this.pause();
+    }
+    
+    this.elements.helpOverlay.classList.toggle('hidden');
   }
 }
 

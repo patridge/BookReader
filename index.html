@@ -8,6 +8,33 @@
   </head>
   <body>
     <div id="app">
+      <button id="help-button" class="help-button" title="Keyboard Shortcuts">?</button>
+      
+      <div id="help-overlay" class="help-overlay hidden">
+        <div class="help-content">
+          <h2>Keyboard Shortcuts</h2>
+          <div class="shortcut-list">
+            <div class="shortcut-item">
+              <kbd>Space</kbd>
+              <span>Play / Pause</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>↑</kbd>
+              <span>Increase Speed</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>↓</kbd>
+              <span>Decrease Speed</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>?</kbd>
+              <span>Toggle This Help</span>
+            </div>
+          </div>
+          <button id="close-help">Close</button>
+        </div>
+      </div>
+      
       <div class="reader-container">
         <div id="word-display" class="word-display">
           Load a book to begin
