@@ -1,5 +1,7 @@
 import './style.css'
 
+const SPEED_ADJUSTMENT_STEP = 50; // WPM to increase/decrease with arrow keys
+
 class BookReader {
   constructor() {
     this.words = [];
@@ -32,6 +34,16 @@ class BookReader {
       if (e.code === 'Space' && this.words.length > 0) {
         e.preventDefault();
         this.togglePlayPause();
+      }
+      
+      if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        this.adjustSpeed(SPEED_ADJUSTMENT_STEP);
+      }
+      
+      if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        this.adjustSpeed(-SPEED_ADJUSTMENT_STEP);
       }
     });
   }
@@ -72,12 +84,18 @@ class BookReader {
   updateSpeed(wpm) {
     this.wpm = parseInt(wpm);
     this.elements.speedValue.textContent = wpm;
+    this.elements.speedSlider.value = wpm;
     
     // If currently playing, restart with new speed
     if (this.isPlaying) {
       this.stop();
       this.play();
     }
+  }
+  
+  adjustSpeed(change) {
+    const newSpeed = Math.max(100, Math.min(1000, this.wpm + change));
+    this.updateSpeed(newSpeed);
   }
   
   togglePlayPause() {
