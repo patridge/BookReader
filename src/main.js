@@ -10,6 +10,10 @@ class BookReader {
     this.isPlaying = false;
     this.intervalId = null;
     this.wpm = 300; // Words per minute
+    this.readingMode = 'visual'; // 'visual' or 'speech'
+    this.currentUtterance = null;
+    this.speechQueue = [];
+    this.isSpeechActive = false;
     
     this.elements = {
       wordDisplay: document.getElementById('word-display'),
@@ -21,7 +25,8 @@ class BookReader {
       progressText: document.getElementById('progress-text'),
       helpButton: document.getElementById('help-button'),
       helpOverlay: document.getElementById('help-overlay'),
-      closeHelpBtn: document.getElementById('close-help')
+      closeHelpBtn: document.getElementById('close-help'),
+      readingModeInputs: document.querySelectorAll('input[name="reading-mode"]')
     };
     
     this.setupEventListeners();
@@ -33,6 +38,9 @@ class BookReader {
     this.elements.loadSampleBtn.addEventListener('click', () => this.loadSampleBook());
     this.elements.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
     this.elements.speedSlider.addEventListener('input', (e) => this.updateSpeed(e.target.value));
+    this.elements.readingModeInputs.forEach(input => {
+      input.addEventListener('change', (e) => this.setReadingMode(e.target.value));
+    });
     this.elements.helpButton.addEventListener('click', () => this.toggleHelp());
     this.elements.closeHelpBtn.addEventListener('click', () => this.toggleHelp());
     this.elements.helpOverlay.addEventListener('click', (e) => {
@@ -120,7 +128,8 @@ class BookReader {
       const bookData = {
         text: this.words.join(' '),
         currentIndex: this.currentIndex,
-        wpm: this.wpm
+        wpm: this.wpm,
+        readingMode: this.readingMode
       };
       localStorage.setItem('bookReaderData', JSON.stringify(bookData));
     } catch (error) {
@@ -145,6 +154,13 @@ class BookReader {
       if (bookData.wpm) {
         this.wpm = bookData.wpm;
         this.updateSpeed(this.wpm);
+      }
+      
+      // Restore reading mode
+      if (bookData.readingMode) {
+        this.readingMode = bookData.readingMode;
+        const modeInput = document.querySelector(`input[name="reading-mode"][value="${this.readingMode}"]`);
+        if (modeInput) modeInput.checked = true;
       }
       
       // Update UI
@@ -180,6 +196,119 @@ class BookReader {
     this.updateSpeed(newSpeed);
   }
   
+  setReadingMode(mode) {
+    // Stop current playback if switching modes
+    if (this.isPlaying) {
+      this.pause();
+    }
+    
+    this.readingMode = mode;
+    
+    // Save preference
+    if (this.words.length > 0) {
+      this.saveToLocalStorage();
+    }
+  }
+  
+  speakFromCurrentPosition() {
+    // Get remaining words from current position
+    const remainingWords = this.words.slice(this.currentIndex);
+    
+    console.log('Total words to speak:', remainingWords.length);
+    
+    // Cancel any ongoing speech
+    if (window.speechSynthesis.speaking) {
+      console.log('Canceling existing speech');
+      window.speechSynthesis.cancel();
+    }
+    
+    // Clear any existing queue
+    this.speechQueue = [];
+    this.isSpeechActive = true;
+    
+    // Split into chunks of ~200 words to avoid browser limits
+    const chunkSize = 200;
+    for (let i = 0; i < remainingWords.length; i += chunkSize) {
+      const chunk = remainingWords.slice(i, i + chunkSize);
+      this.speechQueue.push({
+        text: chunk.join(' '),
+        startIndex: this.currentIndex + i,
+        wordCount: chunk.length
+      });
+    }
+    
+    console.log('Created', this.speechQueue.length, 'speech chunks');
+    
+    // Start speaking the first chunk
+    this.speakNextChunk();
+  }
+  
+  speakNextChunk() {
+    if (!this.isSpeechActive || this.speechQueue.length === 0) {
+      // Done speaking all chunks
+      if (this.isSpeechActive) {
+        console.log('Speech completed');
+        this.currentIndex = this.words.length - 1;
+        this.updateDisplay();
+        this.updateProgress();
+        this.pause();
+      }
+      return;
+    }
+    
+    const chunk = this.speechQueue.shift();
+    console.log('Speaking chunk, words:', chunk.wordCount, 'starting at index:', chunk.startIndex);
+    
+    const utterance = new SpeechSynthesisUtterance(chunk.text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    let lastWordIndex = 0;
+    
+    utterance.onstart = () => {
+      console.log('Chunk started');
+      this.currentIndex = chunk.startIndex;
+      this.updateDisplay();
+      this.updateProgress();
+    };
+    
+    // Track word boundaries to update display
+    utterance.onboundary = (event) => {
+      if (event.name === 'word') {
+        // Count words spoken in current chunk based on character position
+        const spokenText = chunk.text.substring(0, event.charIndex);
+        const wordsSpoken = spokenText.trim().split(/\s+/).filter(w => w.length > 0).length;
+        
+        if (wordsSpoken !== lastWordIndex) {
+          lastWordIndex = wordsSpoken;
+          this.currentIndex = chunk.startIndex + wordsSpoken;
+          this.updateDisplay();
+          this.updateProgress();
+        }
+      }
+    };
+    
+    utterance.onend = () => {
+      console.log('Chunk ended, remaining chunks:', this.speechQueue.length);
+      this.currentIndex = chunk.startIndex + chunk.wordCount;
+      this.updateDisplay();
+      this.updateProgress();
+      
+      // Speak next chunk
+      this.speakNextChunk();
+    };
+    
+    utterance.onerror = (event) => {
+      console.error('Speech error:', event);
+      this.isSpeechActive = false;
+      this.pause();
+    };
+    
+    this.currentUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  }
+  
   jumpWords(amount) {
     const newIndex = Math.max(0, Math.min(this.words.length - 1, this.currentIndex + amount));
     this.currentIndex = newIndex;
@@ -204,15 +333,33 @@ class BookReader {
     this.isPlaying = true;
     this.elements.playPauseBtn.textContent = 'Pause';
     
-    const interval = 60000 / this.wpm; // Convert WPM to milliseconds
-    this.intervalId = setInterval(() => {
-      this.displayNextWord();
-    }, interval);
+    console.log('Play mode:', this.readingMode);
+    
+    if (this.readingMode === 'speech') {
+      // Use speech synthesis
+      console.log('Starting speech from index:', this.currentIndex);
+      this.speakFromCurrentPosition();
+    } else {
+      // Visual word-by-word display
+      const interval = 60000 / this.wpm; // Convert WPM to milliseconds
+      this.intervalId = setInterval(() => {
+        this.displayNextWord();
+      }, interval);
+    }
   }
   
   pause() {
     this.stop();
     this.elements.playPauseBtn.textContent = 'Play';
+    
+    // Stop speech mode
+    this.isSpeechActive = false;
+    this.speechQueue = [];
+    
+    // Stop any ongoing speech
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
   }
   
   stop() {
@@ -242,7 +389,8 @@ class BookReader {
   
   updateDisplay() {
     if (this.words.length > 0 && this.currentIndex < this.words.length) {
-      this.elements.wordDisplay.textContent = this.words[this.currentIndex];
+      const currentWord = this.words[this.currentIndex];
+      this.elements.wordDisplay.textContent = currentWord;
     }
   }
   
