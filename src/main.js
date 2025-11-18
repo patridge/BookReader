@@ -1,6 +1,7 @@
 import './style.css'
 
 const SPEED_ADJUSTMENT_STEP = 50; // WPM to increase/decrease with arrow keys
+const WORD_JUMP_AMOUNT = 50; // Words to jump with left/right arrows
 
 class BookReader {
   constructor() {
@@ -54,6 +55,16 @@ class BookReader {
       if (e.code === 'ArrowDown') {
         e.preventDefault();
         this.adjustSpeed(-SPEED_ADJUSTMENT_STEP);
+      }
+      
+      if (e.code === 'ArrowLeft' && this.words.length > 0) {
+        e.preventDefault();
+        this.jumpWords(-WORD_JUMP_AMOUNT);
+      }
+      
+      if (e.code === 'ArrowRight' && this.words.length > 0) {
+        e.preventDefault();
+        this.jumpWords(WORD_JUMP_AMOUNT);
       }
       
       if (e.key === '?' || e.key === '/') {
@@ -117,6 +128,13 @@ class BookReader {
   adjustSpeed(change) {
     const newSpeed = Math.max(100, Math.min(1000, this.wpm + change));
     this.updateSpeed(newSpeed);
+  }
+  
+  jumpWords(amount) {
+    const newIndex = Math.max(0, Math.min(this.words.length - 1, this.currentIndex + amount));
+    this.currentIndex = newIndex;
+    this.updateDisplay();
+    this.updateProgress();
   }
   
   togglePlayPause() {
