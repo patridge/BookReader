@@ -76,6 +76,11 @@ class BookReader {
         this.jumpWords(WORD_JUMP_AMOUNT);
       }
       
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        this.toggleMode();
+      }
+      
       if (e.key === '?' || e.key === '/') {
         e.preventDefault();
         this.toggleHelp();
@@ -204,10 +209,21 @@ class BookReader {
     
     this.readingMode = mode;
     
+    // Update radio buttons
+    const modeInput = document.querySelector(`input[name="reading-mode"][value="${mode}"]`);
+    if (modeInput) {
+      modeInput.checked = true;
+    }
+    
     // Save preference
     if (this.words.length > 0) {
       this.saveToLocalStorage();
     }
+  }
+  
+  toggleMode() {
+    const newMode = this.readingMode === 'visual' ? 'speech' : 'visual';
+    this.setReadingMode(newMode);
   }
   
   speakFromCurrentPosition() {
