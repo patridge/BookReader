@@ -108,7 +108,8 @@ class BookReader {
   
   async loadSampleBook() {
     try {
-      const response = await fetch('/books/pg-alice.txt');
+      const bookPath = `${import.meta.env.BASE_URL}books/pg-alice.txt`;
+      const response = await fetch(bookPath);
       if (!response.ok) throw new Error('Failed to load sample book');
       const text = await response.text();
       this.processBookText(text);
